@@ -18,12 +18,28 @@ Webcam Settings 3.0, with at least the same features. See
 [docs/ORIGINAL_ANALYSIS.md](docs/ORIGINAL_ANALYSIS.md) for how that app's
 behavior was studied; no code or assets from it are used.
 
-## Requirements
+## Install
+
+1. Download `CamAdjust-1.0.zip` from
+   [Releases](https://github.com/danielwjohnston/CamAdjust/releases/latest)
+   and unzip it.
+2. Move `CamAdjust.app` to `/Applications`.
+3. Open it. The first time, macOS says it can't verify the developer:
+   click **Done**, then go to **System Settings → Privacy & Security**,
+   scroll down and click **Open Anyway** next to CamAdjust. (Or run
+   `xattr -dr com.apple.quarantine /Applications/CamAdjust.app`.)
+
+The panel opens on first launch; after that, use the camera icon in the
+menu bar.
+
+## Build from source
+
+### Requirements
 
 - macOS 13 or later, Apple Silicon or Intel
 - Xcode Command Line Tools (`xcode-select --install`)
 
-## Build
+### Build
 
     ./build.sh
 
@@ -90,8 +106,26 @@ sleep/wake.
 - `open build/CamAdjust.app --args -PanelTab Profiles` opens the panel
   on a given tab.
 
+## Acknowledgements
+
+CamAdjust exists because of **Webcam Settings** by
+[Mactaris](https://mactaris.blogspot.com/) (Liang-Hsin Chen), a long-running
+Mac App Store utility for UVC webcams (available since at least 2012). The
+Mactaris blog documents its history, for example
+[2.2](https://mactaris.blogspot.com/2013/12/webcam-settings-22-on-mac-app-store.html),
+which added Logitech LED control, and
+[2.3](https://mactaris.blogspot.com/2014/02/webcam-settings-23-on-mac-app-store.html),
+which added Update Profile. Mactaris also makes Sight Control, Orbit
+Command and iVision. If the original still works for you, consider
+[buying it on the Mac App Store](https://apps.apple.com/app/webcam-settings/id533696630).
+
+CamAdjust is an independent project. It is not affiliated with, endorsed
+by, or derived from code or assets of Mactaris. "Webcam Settings" is
+Mactaris's product name and is used here only to describe compatibility.
+
 ## Distribution
 
-The build is ad-hoc signed and not notarized, so it runs on the Mac that
-built it. To share it, sign with a Developer ID certificate and notarize
-with `notarytool`.
+Release builds are ad-hoc signed, not notarized: there is no paid Apple
+Developer ID behind this project. macOS asks you to approve the app once
+(see Install). To ship a notarized build, sign with a Developer ID
+certificate and notarize with `notarytool`.

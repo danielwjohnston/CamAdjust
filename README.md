@@ -1,74 +1,88 @@
 # Webcam Settings (Apple Silicon rewrite)
 
-A menu bar app that adjusts USB Video Class (UVC) webcam settings:
-brightness, contrast, hue, saturation, sharpness, gamma, white balance,
-backlight compensation, gain, exposure, focus and zoom. It also saves
-per-camera profiles and can re-apply them at startup.
+A menu bar app that adjusts USB Video Class (UVC) webcam settings, with
+named profiles, daily schedules, and automatic re-application when other
+apps or sleep reset the camera.
 
-This is a fresh Swift implementation built as a universal binary
-(arm64 + x86_64). It was not taken from the original binary, which is
-x86_64 only and ships without source.
+It is a fresh Swift implementation and a universal binary (arm64 + x86_64).
+It matches the feature set of the x86_64-only Webcam Settings 3.0. See
+[docs/ORIGINAL_ANALYSIS.md](docs/ORIGINAL_ANALYSIS.md) for how the original
+was analyzed; no code or assets from it are used.
 
 ## Requirements
 
-- Mac with Apple Silicon (or Intel; the build is universal)
-- macOS 13 or later
+- macOS 13 or later, Apple Silicon or Intel
 - Xcode Command Line Tools (`xcode-select --install`)
 
 ## Build
 
-    chmod +x build.sh
     ./build.sh
 
-The app is written to `build/WebcamSettings.app`. Move it to
-`/Applications` and open it. A camera icon appears in the menu bar.
+The app is written to `build/WebcamSettings.app`. Move it to `/Applications`
+and open it. The panel opens on first launch; after that, use the camera
+icon in the menu bar.
 
-Check the architectures with:
+## Features
 
-    lipo -info build/WebcamSettings.app/Contents/MacOS/WebcamSettings
-
-Expected output: `Architectures in the fat file ... are: x86_64 arm64`
-
-## Use
-
-1. Click the camera icon in the menu bar.
-2. Choose "<camera name> Settings..." to open the slider window.
-3. Adjust sliders. Changes apply immediately.
-4. "Save Profile" stores the current values for that camera.
-5. "Apply Saved Profiles at Startup" re-applies saved values when a
-   matching camera is found.
-6. "Launch at Login" registers the app as a login item.
+| Feature | Original 3.0 | This app |
+|---|---|---|
+| Brightness, contrast, hue, saturation, sharpness, gamma, backlight, gain | Yes | Yes |
+| White balance temperature + auto | Yes | Yes |
+| White balance U/V + auto | Yes | Yes |
+| Hue auto | No | Yes |
+| Power line frequency (Disabled / 50 / 60 / Auto) | Yes | Yes, limited to what the camera supports |
+| Auto-exposure mode (Manual / Auto / Shutter / Aperture priority) | Yes | Yes, limited to the camera's supported modes |
+| Exposure time, focus + auto focus, zoom | Yes | Yes |
+| Aperture (iris) | Relative −/+ | Relative −/+ and absolute slider |
+| Pan / tilt | Yes | Absolute sliders; Logitech motor −/+ pad and reset |
+| Logitech LED (Auto / On / Off) | Yes | Yes, same model list |
+| Exposure "knob" cameras (LifeCam, Creative, HP) | Yes | Yes |
+| LifeCam Studio stepped zoom | Yes | Yes |
+| Sliders with −/+ step buttons and value field | Yes | Yes, stepped by the camera's resolution |
+| Controls greyed out while their auto mode is on | Partly | Yes |
+| Video format and FPS | Yes | Yes |
+| Named profiles per camera, Camera Default, save/update/delete | Yes | Yes |
+| Load profile at start | Yes | Yes, also when the camera is plugged in |
+| Daily profile schedules | Yes | Yes, with per-schedule on/off |
+| Read auto values interval | Yes | Yes |
+| Write settings back interval (for apps that reset the camera) | Yes | Yes |
+| Re-apply after sleep/wake | Restarts timers | Restarts timers and rewrites settings |
+| USB hot-plug | Yes | Yes |
+| Apply profiles and set the LED from the menu bar | No | Yes |
+| Colour or black-and-white icon, hide icon, launch at login | Yes | Yes |
+| Noise reduction (CoreMediaIO, Apple built-in cameras only) | Yes | No, see below |
+| Licence, purchase and update check | Yes | Not needed |
 
 ## How it talks to the camera
 
-UVC control requests go through each camera's VideoControl interface
-(class 14, subclass 1) using the IOKit `IOUSBInterfaceInterface` user
-client and `ControlRequest` on the default pipe. This does not need
-exclusive access, so it works while macOS's own UVC driver owns the
-camera. (`IOUSBHostDevice` from IOUSBHost.framework was tried first; it
-requires an exclusive open, which always fails for an active camera.)
+UVC requests go through each camera's VideoControl interface (class 14,
+subclass 1) using the IOKit `IOUSBInterfaceInterface` user client. The
+interface is never opened, so this works while macOS's UVC driver is using
+the camera. If a camera stops responding, the app wakes it and retries once.
 
 Tested on macOS 27 with a Razer Kiyo and the Apple Thunderbolt Display
-FaceTime HD camera: controls are discovered, and writes read back
-correctly.
+FaceTime HD camera: controls are discovered, profiles, Camera Default and
+write-back restore values correctly, and schedules compute the right times.
 
-Notes:
+Not tested on hardware: Logitech LED and motor commands, exposure-knob and
+LifeCam quirks (no such cameras were available), USB hot-plug, and
+sleep/wake.
 
-- Unsupported controls. Only controls that answer GET_MIN and GET_MAX
-  with a non-empty range are shown.
-- The Razer Kiyo's brightness has been seen to change between sessions
-  on its own; "Apply Saved Profiles at Startup" re-applies saved values.
+## Not included
 
-## Not included compared with the original
+- **Noise reduction.** The original reached this through CoreMediaIO, only
+  for Apple's built-in (non-USB) cameras. Current macOS no longer exposes
+  those controls for built-in cameras.
 
-- Pan and tilt controls
-- Power line frequency (anti-flicker) and auto-exposure mode switching
-- CoreMediaIO-based controls
-- Black-and-white menu bar icon option
+## Tips
+
+- If the menu bar icon is hidden, open the app again from Finder or
+  Spotlight to show the panel.
+- `open build/WebcamSettings.app --args -PanelTab Profiles` opens the panel
+  on a given tab.
 
 ## Distribution
 
 The build is ad-hoc signed and not notarized, so it runs on the Mac that
 built it. To share it, sign with a Developer ID certificate and notarize
-with `notarytool`. Mac App Store distribution would need the App Sandbox
-and USB entitlements, which are not set up here.
+with `notarytool`.

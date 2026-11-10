@@ -7,7 +7,7 @@ cd "$(dirname "$0")"
 MIN_OS="13.0"
 APP="build/WebcamSettings.app"
 SOURCES=(Sources/*.swift)
-FRAMEWORKS=(-framework Cocoa -framework IOKit -framework ServiceManagement)
+FRAMEWORKS=(-framework Cocoa -framework IOKit -framework ServiceManagement -framework AVFoundation -framework SwiftUI)
 
 rm -rf build
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"

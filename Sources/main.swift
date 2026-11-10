@@ -1,90 +1,185 @@
 import Cocoa
-import ServiceManagement
+import SwiftUI
 
-// Menu bar (agent) app: lists UVC cameras and opens a settings window for each.
-final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
+// Menu bar (agent) app. The status item menu applies profiles and opens the
+// control panel; the panel holds every control, profiles, schedules and
+// preferences.
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelegate {
+    private let manager = CameraManager()
     private var statusItem: NSStatusItem?
-    private var cameras: [UVCCamera] = []
-    private var panels: [String: ControlPanelController] = [:]
+    private var panel: NSWindow?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        item.button?.image = NSImage(systemSymbolName: "camera.aperture", accessibilityDescription: "Webcam Settings")
-        item.button?.image?.isTemplate = true
+        manager.start()
+        installStatusItem()
+        NotificationCenter.default.addObserver(self, selector: #selector(preferencesChanged),
+                                               name: Preferences.changed, object: nil)
+        if !Store.shared.welcomeShown {
+            Store.shared.welcomeShown = true
+            showPanel()
+        }
+    }
 
+    /// Opening the app again (Finder, Spotlight) shows the panel; this is
+    /// the way back when the menu bar icon is hidden.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        showPanel()
+        return true
+    }
+
+    // MARK: Status item
+
+    private func installStatusItem() {
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         let menu = NSMenu()
         menu.delegate = self
         item.menu = menu
         statusItem = item
+        updateStatusItem()
     }
 
-    // Rediscover cameras; apply saved profiles only to cameras that just appeared.
-    private func refreshCameras() {
-        let found = UVCCamera.discover()
-        let newlyFound = found.filter { camera in !cameras.contains { $0.name == camera.name } }
-        cameras = found
-        Profiles.applyIfEnabled(to: newlyFound)
+    private func updateStatusItem() {
+        guard let item = statusItem else { return }
+        item.isVisible = !Store.shared.hideMenuBarIcon
+        let symbol = NSImage(systemSymbolName: "camera.aperture", accessibilityDescription: "Webcam Settings")
+        if Store.shared.blackAndWhiteIcon {
+            symbol?.isTemplate = true
+            item.button?.image = symbol
+        } else {
+            let config = NSImage.SymbolConfiguration(paletteColors: [.systemTeal])
+            item.button?.image = symbol?.withSymbolConfiguration(config)
+        }
+    }
+
+    @objc private func preferencesChanged() {
+        updateStatusItem()
     }
 
     func menuNeedsUpdate(_ menu: NSMenu) {
-        refreshCameras()
         menu.removeAllItems()
 
-        if cameras.isEmpty {
+        let panelVisible = panel?.isVisible == true
+        let toggle = NSMenuItem(title: panelVisible ? "Hide Webcam Settings Panel" : "Show Webcam Settings Panel",
+                                action: #selector(togglePanel), keyEquivalent: "")
+        toggle.target = self
+        menu.addItem(toggle)
+        menu.addItem(.separator())
+
+        if manager.cameras.isEmpty {
             let none = NSMenuItem(title: "No UVC cameras found", action: nil, keyEquivalent: "")
             none.isEnabled = false
             menu.addItem(none)
         }
-        for (index, camera) in cameras.enumerated() {
-            let item = NSMenuItem(title: "\(camera.name) Settings...",
-                                  action: #selector(openPanel(_:)),
-                                  keyEquivalent: "")
-            item.target = self
-            item.tag = index
-            menu.addItem(item)
-        }
-
-        menu.addItem(.separator())
-
-        let login = NSMenuItem(title: "Launch at Login", action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
-        login.target = self
-        login.state = SMAppService.mainApp.status == .enabled ? .on : .off
-        menu.addItem(login)
-
-        let startup = NSMenuItem(title: "Apply Saved Profiles at Startup", action: #selector(toggleLoadAtStart), keyEquivalent: "")
-        startup.target = self
-        startup.state = Profiles.loadAtStart ? .on : .off
-        menu.addItem(startup)
-
-        menu.addItem(.separator())
-        menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
-    }
-
-    @objc private func openPanel(_ sender: NSMenuItem) {
-        guard cameras.indices.contains(sender.tag) else { return }
-        let camera = cameras[sender.tag]
-        panels[camera.name]?.close()
-        let controller = ControlPanelController(camera: camera)
-        panels[camera.name] = controller
-        controller.showWindow(nil)
-        controller.window?.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
-    }
-
-    @objc private func toggleLaunchAtLogin() {
-        do {
-            if SMAppService.mainApp.status == .enabled {
-                try SMAppService.mainApp.unregister()
-            } else {
-                try SMAppService.mainApp.register()
+        for model in manager.cameras {
+            let cameraItem = NSMenuItem(title: model.name, action: nil, keyEquivalent: "")
+            let sub = NSMenu()
+            let open = NSMenuItem(title: "Settings…", action: #selector(openCamera(_:)), keyEquivalent: "")
+            open.target = self
+            open.representedObject = model.id
+            sub.addItem(open)
+            sub.addItem(.separator())
+            let header = NSMenuItem(title: "Apply Profile", action: nil, keyEquivalent: "")
+            header.isEnabled = false
+            sub.addItem(header)
+            for name in [Store.cameraDefaultProfile] + Store.shared.profileNames(for: model.modelID) {
+                let p = NSMenuItem(title: name, action: #selector(applyProfile(_:)), keyEquivalent: "")
+                p.target = self
+                p.representedObject = [model.id, name]
+                p.indentationLevel = 1
+                sub.addItem(p)
             }
-        } catch {
-            NSLog("Launch at login change failed: \(error.localizedDescription)")
+            if model.camera.supportsLED {
+                sub.addItem(.separator())
+                let ledHeader = NSMenuItem(title: "LED", action: nil, keyEquivalent: "")
+                ledHeader.isEnabled = false
+                sub.addItem(ledHeader)
+                for mode in LEDMode.allCases {
+                    let l = NSMenuItem(title: mode.title, action: #selector(setLED(_:)), keyEquivalent: "")
+                    l.target = self
+                    l.representedObject = [model.id, mode.rawValue]
+                    l.indentationLevel = 1
+                    l.state = model.ledMode == mode ? .on : .off
+                    sub.addItem(l)
+                }
+            }
+            cameraItem.submenu = sub
+            menu.addItem(cameraItem)
         }
+
+        menu.addItem(.separator())
+        let prefs = Preferences.shared
+        addToggle(menu, "Launch Webcam Settings at Login", prefs.launchAtLogin, #selector(toggleLaunchAtLogin))
+        addToggle(menu, "Use Black and White Menu Bar Icon", prefs.blackAndWhiteIcon, #selector(toggleBWIcon))
+        addToggle(menu, "Hide Menu Bar Icon", prefs.hideMenuBarIcon, #selector(toggleHideIcon))
+        menu.addItem(.separator())
+        let about = NSMenuItem(title: "About Webcam Settings", action: #selector(showAbout), keyEquivalent: "")
+        about.target = self
+        menu.addItem(about)
+        menu.addItem(NSMenuItem(title: "Quit Webcam Settings", action: #selector(NSApplication.terminate(_:)),
+                                keyEquivalent: "q"))
     }
 
-    @objc private func toggleLoadAtStart() {
-        Profiles.loadAtStart.toggle()
+    private func addToggle(_ menu: NSMenu, _ title: String, _ on: Bool, _ action: Selector) {
+        let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
+        item.target = self
+        item.state = on ? .on : .off
+        menu.addItem(item)
+    }
+
+    // MARK: Actions
+
+    @objc private func togglePanel() {
+        if panel?.isVisible == true { panel?.orderOut(nil) } else { showPanel() }
+    }
+
+    @objc private func openCamera(_ sender: NSMenuItem) {
+        manager.selectedID = sender.representedObject as? String
+        showPanel()
+    }
+
+    @objc private func applyProfile(_ sender: NSMenuItem) {
+        guard let info = sender.representedObject as? [String],
+              let model = manager.cameras.first(where: { $0.id == info[0] }) else { return }
+        model.applyProfile(info[1])
+    }
+
+    @objc private func setLED(_ sender: NSMenuItem) {
+        guard let info = sender.representedObject as? [Any], let id = info[0] as? String,
+              let raw = info[1] as? Int, let mode = LEDMode(rawValue: raw),
+              let model = manager.cameras.first(where: { $0.id == id }) else { return }
+        model.setLED(mode)
+    }
+
+    @objc private func toggleLaunchAtLogin() { Preferences.shared.launchAtLogin.toggle() }
+    @objc private func toggleBWIcon() { Preferences.shared.blackAndWhiteIcon.toggle() }
+    @objc private func toggleHideIcon() {
+        Preferences.shared.hideMenuBarIcon.toggle()
+        if Preferences.shared.hideMenuBarIcon { showPanel() }
+    }
+
+    @objc private func showAbout() {
+        NSApp.activate(ignoringOtherApps: true)
+        NSApp.orderFrontStandardAboutPanel(options: [
+            .credits: NSAttributedString(string: "Adjusts USB Video Class webcam settings."),
+        ])
+    }
+
+    private func showPanel() {
+        if panel == nil {
+            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 540, height: 660),
+                                  styleMask: [.titled, .closable, .miniaturizable, .resizable],
+                                  backing: .buffered, defer: false)
+            window.title = "Webcam Settings"
+            window.contentView = NSHostingView(rootView: PanelView(manager: manager))
+            window.isReleasedWhenClosed = false
+            window.delegate = self
+            window.center()
+            window.setFrameAutosaveName("WebcamSettingsPanel")
+            panel = window
+        }
+        manager.selected?.refresh()
+        panel?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
     }
 }
 

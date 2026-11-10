@@ -143,7 +143,7 @@ enum PanelTab: String, CaseIterable, Identifiable {
 final class CameraManager: ObservableObject {
     @Published private(set) var cameras: [CameraModel] = []
     @Published var selectedID: String?
-    /// Starting tab; `open WebcamSettings.app --args -PanelTab Profiles` picks another.
+    /// Starting tab; `open CamAdjust.app --args -PanelTab Profiles` picks another.
     @Published var tab: PanelTab = UserDefaults.standard.string(forKey: "PanelTab").flatMap(PanelTab.init) ?? .basic
 
     var selected: CameraModel? { cameras.first { $0.id == selectedID } ?? cameras.first }

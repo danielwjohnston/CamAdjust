@@ -413,10 +413,10 @@ struct PreferencesView: View {
                 Toggle("Use black and white menu bar icon", isOn: $prefs.blackAndWhiteIcon)
                 Toggle("Hide menu bar icon", isOn: $prefs.hideMenuBarIcon)
                 if prefs.hideMenuBarIcon {
-                    Text("Open Webcam Settings again from Finder or Spotlight to show this panel.")
+                    Text("Open CamAdjust again from Finder or Spotlight to show this panel.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
-                Toggle("Launch Webcam Settings at login", isOn: $prefs.launchAtLogin)
+                Toggle("Launch CamAdjust at login", isOn: $prefs.launchAtLogin)
             }
         }
         .formStyle(.grouped)

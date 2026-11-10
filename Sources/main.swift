@@ -41,7 +41,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
     private func updateStatusItem() {
         guard let item = statusItem else { return }
         item.isVisible = !Store.shared.hideMenuBarIcon
-        let symbol = NSImage(systemSymbolName: "camera.aperture", accessibilityDescription: "Webcam Settings")
+        let symbol = NSImage(systemSymbolName: "camera.aperture", accessibilityDescription: "CamAdjust")
         if Store.shared.blackAndWhiteIcon {
             symbol?.isTemplate = true
             item.button?.image = symbol
@@ -59,7 +59,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         menu.removeAllItems()
 
         let panelVisible = panel?.isVisible == true
-        let toggle = NSMenuItem(title: panelVisible ? "Hide Webcam Settings Panel" : "Show Webcam Settings Panel",
+        let toggle = NSMenuItem(title: panelVisible ? "Hide CamAdjust Panel" : "Show CamAdjust Panel",
                                 action: #selector(togglePanel), keyEquivalent: "")
         toggle.target = self
         menu.addItem(toggle)
@@ -108,14 +108,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
 
         menu.addItem(.separator())
         let prefs = Preferences.shared
-        addToggle(menu, "Launch Webcam Settings at Login", prefs.launchAtLogin, #selector(toggleLaunchAtLogin))
+        addToggle(menu, "Launch CamAdjust at Login", prefs.launchAtLogin, #selector(toggleLaunchAtLogin))
         addToggle(menu, "Use Black and White Menu Bar Icon", prefs.blackAndWhiteIcon, #selector(toggleBWIcon))
         addToggle(menu, "Hide Menu Bar Icon", prefs.hideMenuBarIcon, #selector(toggleHideIcon))
         menu.addItem(.separator())
-        let about = NSMenuItem(title: "About Webcam Settings", action: #selector(showAbout), keyEquivalent: "")
+        let about = NSMenuItem(title: "About CamAdjust", action: #selector(showAbout), keyEquivalent: "")
         about.target = self
         menu.addItem(about)
-        menu.addItem(NSMenuItem(title: "Quit Webcam Settings", action: #selector(NSApplication.terminate(_:)),
+        menu.addItem(NSMenuItem(title: "Quit CamAdjust", action: #selector(NSApplication.terminate(_:)),
                                 keyEquivalent: "q"))
     }
 
@@ -169,12 +169,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
             let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 540, height: 660),
                                   styleMask: [.titled, .closable, .miniaturizable, .resizable],
                                   backing: .buffered, defer: false)
-            window.title = "Webcam Settings"
+            window.title = "CamAdjust"
             window.contentView = NSHostingView(rootView: PanelView(manager: manager))
             window.isReleasedWhenClosed = false
             window.delegate = self
             window.center()
-            window.setFrameAutosaveName("WebcamSettingsPanel")
+            window.setFrameAutosaveName("CamAdjustPanel")
             panel = window
         }
         manager.selected?.refresh()

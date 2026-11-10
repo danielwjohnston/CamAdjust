@@ -1,13 +1,22 @@
-# Webcam Settings (Apple Silicon rewrite)
+# CamAdjust
 
-A menu bar app that adjusts USB Video Class (UVC) webcam settings, with
-named profiles, daily schedules, and automatic re-application when other
-apps or sleep reset the camera.
+**The webcam controls macOS doesn't give you.** CamAdjust is a menu bar app
+for USB (UVC) webcams: brightness, exposure, focus, white balance, zoom,
+pan/tilt and more, with named profiles, daily schedules, and automatic
+re-application when other apps or sleep reset your camera.
 
-It is a fresh Swift implementation and a universal binary (arm64 + x86_64).
-It matches the feature set of the x86_64-only Webcam Settings 3.0. See
-[docs/ORIGINAL_ANALYSIS.md](docs/ORIGINAL_ANALYSIS.md) for how the original
-was analyzed; no code or assets from it are used.
+Native Swift, universal binary (Apple Silicon + Intel), macOS 13 or later.
+
+| Basic | Advanced |
+|---|---|
+| ![Basic controls](docs/screenshots/basic.png) | ![Advanced controls](docs/screenshots/advanced.png) |
+| **Profiles and schedules** | **Preferences** |
+| ![Profiles](docs/screenshots/profiles.png) | ![Preferences](docs/screenshots/preferences.png) |
+
+CamAdjust is an independent, from-scratch replacement for the x86_64-only
+Webcam Settings 3.0, with at least the same features. See
+[docs/ORIGINAL_ANALYSIS.md](docs/ORIGINAL_ANALYSIS.md) for how that app's
+behavior was studied; no code or assets from it are used.
 
 ## Requirements
 
@@ -18,13 +27,13 @@ was analyzed; no code or assets from it are used.
 
     ./build.sh
 
-The app is written to `build/WebcamSettings.app`. Move it to `/Applications`
+The app is written to `build/CamAdjust.app`. Move it to `/Applications`
 and open it. The panel opens on first launch; after that, use the camera
 icon in the menu bar.
 
 ## Features
 
-| Feature | Original 3.0 | This app |
+| Feature | Webcam Settings 3.0 | CamAdjust |
 |---|---|---|
 | Brightness, contrast, hue, saturation, sharpness, gamma, backlight, gain | Yes | Yes |
 | White balance temperature + auto | Yes | Yes |
@@ -76,9 +85,9 @@ sleep/wake.
 
 ## Tips
 
-- If the menu bar icon is hidden, open the app again from Finder or
+- If the menu bar icon is hidden, open CamAdjust again from Finder or
   Spotlight to show the panel.
-- `open build/WebcamSettings.app --args -PanelTab Profiles` opens the panel
+- `open build/CamAdjust.app --args -PanelTab Profiles` opens the panel
   on a given tab.
 
 ## Distribution

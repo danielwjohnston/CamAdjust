@@ -15,8 +15,8 @@ Native Swift, universal binary (Apple Silicon + Intel), macOS 13 or later.
 
 CamAdjust is an independent, from-scratch replacement for the x86_64-only
 Webcam Settings 3.0, with at least the same features. See
-[docs/ORIGINAL_ANALYSIS.md](docs/ORIGINAL_ANALYSIS.md) for how that app's
-behavior was studied; no code or assets from it are used.
+[docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) for the behavior and camera
+support it matches.
 
 ## Install
 
